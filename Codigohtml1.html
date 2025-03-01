@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor de Arquivos Online</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        #fileInput { margin: 20px; }
+        button { padding: 10px 20px; cursor: pointer; }
+        #output { margin-top: 20px; }
+        .converter-section { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 20px; }
+        .converter-box { width: 200px; padding: 15px; margin: 10px; text-align: center; border: 1px solid #ddd; border-radius: 10px; }
+        .converter-box img { width: 100px; height: 100px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.16.0/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>Conversor de Arquivos Online</h1>
+    
+    <!-- Anúncio Topo -->
+    <div id="ads_top">
+        <script async src="https://propu.sh/pfe/current/tag.min.js?z=SEU_CODIGO_PROP_ADS" data-cfasync="false"></script>
+    </div>
+    
+    <p>Envie um arquivo e converta para PDF:</p>
+    <input type="file" id="fileInput" accept=".jpg, .jpeg, .png, .txt, .doc, .docx, .xls, .xlsx">
+    <button onclick="convertToPDF()">Converter para PDF</button>
+    
+    <p id="loading" style="display:none;">Convertendo...</p>
+    <p id="output"></p>
+    
+    <!-- Seção de tipos de conversão -->
+    <h2>Tipos de Conversão Suportados</h2>
+    <div class="converter-section">
+        <div class="converter-box">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Jpeg-file-icon.png" alt="JPG to PDF">
+            <p>JPG, PNG → PDF</p>
+            <p>Imagens para PDF</p>
+            <p>Images to PDF</p>
+            <p>Imágenes a PDF</p>
+        </div>
+        <div class="converter-box">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/8/87/Text-file-icon.png" alt="TXT to PDF">
+            <p>TXT → PDF</p>
+            <p>Texto para PDF</p>
+            <p>Text to PDF</p>
+            <p>Texto a PDF</p>
+        </div>
+        <div class="converter-box">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Microsoft_Word_2013-2019_logo.svg" alt="DOC to PDF">
+            <p>DOC, DOCX → PDF</p>
+            <p>Word para PDF</p>
+            <p>Word to PDF</p>
+            <p>Word a PDF</p>
+        </div>
+        <div class="converter-box">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/8/86/Microsoft_Excel_2013-2019_logo.svg" alt="XLS to PDF">
+            <p>XLS, XLSX → PDF</p>
+            <p>Excel para PDF</p>
+            <p>Excel to PDF</p>
+            <p>Excel a PDF</p>
+        </div>
+    </div>
+    
+    <!-- Anúncio Meio -->
+    <div id="ads_middle">
+        <script async src="https://propu.sh/pfe/current/tag.min.js?z=SEU_CODIGO_PROP_ADS" data-cfasync="false"></script>
+    </div>
+
+    <script>
+        async function convertToPDF() {
+            const fileInput = document.getElementById("fileInput");
+            const loading = document.getElementById("loading");
+            const output = document.getElementById("output");
+            output.innerHTML = "";
+            
+            if (fileInput.files.length === 0) {
+                alert("Por favor, selecione um arquivo.");
+                return;
+            }
+
+            loading.style.display = "block";
+            const file = fileInput.files[0];
+            const pdfDoc = await PDFLib.PDFDocument.create();
+            const page = pdfDoc.addPage([600, 800]);
+            
+            if (file.type.includes("image")) {
+                const imgBytes = await file.arrayBuffer();
+                let img;
+                if (file.type === "image/png") {
+                    img = await pdfDoc.embedPng(imgBytes);
+                } else {
+                    img = await pdfDoc.embedJpg(imgBytes);
+                }
+                page.drawImage(img, { x: 50, y: 200, width: 500, height: 400 });
+            } else if (file.type === "text/plain") {
+                const text = await file.text();
+                page.drawText(text, { x: 50, y: 700, maxWidth: 500 });
+            } else if (file.type.includes("word")) {
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    const text = await Mammoth.extractRawText({ arrayBuffer: event.target.result });
+                    page.drawText(text.value, { x: 50, y: 700, maxWidth: 500 });
+                    finalizePDF(pdfDoc);
+                };
+                reader.readAsArrayBuffer(file);
+                return;
+            } else if (file.type.includes("excel")) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const workbook = XLSX.read(event.target.result, { type: "binary" });
+                    let sheetText = "";
+                    workbook.SheetNames.forEach(sheetName => {
+                        sheetText += XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                    });
+                    page.drawText(sheetText, { x: 50, y: 700, maxWidth: 500 });
+                    finalizePDF(pdfDoc);
+                };
+                reader.readAsBinaryString(file);
+                return;
+            } else {
+                alert("Formato não suportado.");
+                loading.style.display = "none";
+                return;
+            }
+            finalizePDF(pdfDoc);
+        }
+        
+        async function finalizePDF(pdfDoc) {
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "convertido.pdf";
+            link.textContent = "Baixar PDF";
+            document.getElementById("output").appendChild(link);
+            document.getElementById("loading").style.display = "none";
+        }
+    </script>
+    
+    <!-- Anúncio Rodapé -->
+    <div id="ads_bottom">
+        <script async src="https://propu.sh/pfe/current/tag.min.js?z=SEU_CODIGO_PROP_ADS" data-cfasync="false"></script>
+    </div>
+</body>
+</html>
